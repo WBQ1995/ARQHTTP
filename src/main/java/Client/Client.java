@@ -26,25 +26,12 @@ public class Client {
           sequenceNumber = (long) (Math.random() * 1000);
      }
 
-     public void sendData() throws IOException{
-          Packet data = new Packet.Builder()
-                  .setType(0)
-                  .setSequenceNumber(sequenceNumber)
-                  .setPortNumber(serverAddress.getPort())
-                  .setPeerAddress(serverAddress.getAddress())
-                  .setPayload("Hello there".getBytes())
-                  .create();
-          channel.send(data.toBuffer(), routerAddress);
-          sequenceNumber++;
+     public void sendData(Packet data) throws IOException{
 
-          ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
-          channel.receive(buf);
-          buf.flip();
-          Packet resp = Packet.fromBuffer(buf);
+         SendPacket sendPacket = new SendPacket(data,this,sequenceNumber);
+         Thread sendPacketThread = new Thread(sendPacket);
+         sendPacketThread.start();
 
-          String payload = new String(resp.getPayload(),UTF_8);
-
-          System.out.println(payload);
      }
 
      public void handShake() throws IOException{
