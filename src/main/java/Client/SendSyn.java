@@ -6,11 +6,9 @@ import java.io.IOException;
 
 public class SendSyn implements Runnable {
 
-    private long mySequenceNumber;
     private Client client;
 
-    public SendSyn(long sequenceNumber, Client client){
-       this.mySequenceNumber = sequenceNumber;
+    public SendSyn(Client client){
        this.client = client;
     }
 
@@ -19,16 +17,18 @@ public class SendSyn implements Runnable {
 
         Packet syn = new Packet.Builder()
                 .setType(1)
-                .setSequenceNumber(mySequenceNumber)
+                .setSequenceNumber(client.getSequenceNumber() - 1)
                 .setPortNumber(client.getServerAddress().getPort())
                 .setPeerAddress(client.getServerAddress().getAddress())
                 .setPayload("".getBytes())
                 .create();
 
-        while (client.getSequenceNumber() == mySequenceNumber + 1){
+        System.out.println("syn# " + syn.getSequenceNumber());
+
+        while (client.getAckNumber() == -1){
             try {
                 client.getChannel().send(syn.toBuffer(), client.getRouterAddress());
-                Thread.sleep(50);
+                Thread.sleep(100);
             } catch (IOException ex){
                 ex.getStackTrace();
             } catch (InterruptedException ex){

@@ -15,14 +15,7 @@ public class httpc {
             client.handShake();
             Thread.sleep(100);
 
-            Packet data = new Packet.Builder()
-                    .setType(0)
-                    .setSequenceNumber(client.getSequenceNumber())
-                    .setPortNumber(client.getServerAddress().getPort())
-                    .setPeerAddress(client.getServerAddress().getAddress())
-                    .setPayload("Hello there".getBytes())
-                    .create();
-            client.sendData(data);
+            client.sendData((client.getAckNumber() + 1) + "" + "Hello there!");
 
             ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
             while (true){
@@ -30,13 +23,17 @@ public class httpc {
                 client.getChannel().receive(buf);
                 buf.flip();
                 Packet resp = Packet.fromBuffer(buf);
-                if(resp.getSequenceNumber() == client.getSequenceNumber()){
-                    String payload = new String(resp.getPayload(),UTF_8);
-                    System.out.println(payload);
-                    client.increaseSequenceNumber();
-                    break;
+                if(resp.getType() == 4){
+                    client.setConnected(true);
+                    client.getWindow().put(resp.getSequenceNumber(),true);
+                    //String payload = new String(resp.getPayload(),UTF_8);
+                    //System.out.println(payload);
+                    if(client.allSent())
+                        break;
                 }
             }
+            System.out.println("Client done!");
+
         } catch (IOException ex){
             ex.getStackTrace();
         }

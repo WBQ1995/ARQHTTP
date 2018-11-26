@@ -8,6 +8,8 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.DatagramChannel;
+import java.util.TreeMap;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class NewConnection implements Runnable {
@@ -16,13 +18,29 @@ public class NewConnection implements Runnable {
     private  DatagramChannel channel;
 
     private long sequenceNumber;
-    private int port;
+    private long ackNumber;
     private Packet packet;
+
+    private boolean connected = false;
+
+    private String rcvData = "";
+
+    private boolean fin = false;
+
+    private long startNumber = -1;
+    private long endNumber = -1;
+    private TreeMap<Long,String> window;
+
+    public boolean allRecieved = false;
 
     public NewConnection(Packet packet){
         this.packet = packet;
-        port = 9000 + (int)(Math.random() * 1000);
-        sequenceNumber = packet.getSequenceNumber() + 1;
+        int port = 9000 + (int)(Math.random() * 1000);
+
+        ackNumber = packet.getSequenceNumber();
+        sequenceNumber = (long) (Math.random() * 1000);
+
+        window = new TreeMap<>();
 
         try{
             channel = DatagramChannel.open();
@@ -35,66 +53,48 @@ public class NewConnection implements Runnable {
     public void run(){
         try {
             sendSynAck();
-            recSynAckAck();
-            recData();
-            sendData();
+
+            processRequest();
+
+            String data = "";
+
+            Thread.sleep(2000);
+
+            for (long key:window.keySet()){
+                data += window.get(key);
+            }
+
+            System.out.println(data);
+
         } catch (IOException ex){
             ex.getStackTrace();
+        } catch (InterruptedException ex){
+            ex.printStackTrace();
         }
     }
 
-    private void sendSynAck() throws IOException{
-        SendSynAck synAck = new SendSynAck(sequenceNumber,this);
-        Thread synAckThread = new Thread(synAck);
-        synAckThread.start();
+    private void processRequest(){
+
+        RequestProcesser requestProcesser = new RequestProcesser(this);
+        Thread processRequestThread = new Thread(requestProcesser);
+        processRequestThread.start();
     }
 
-    private void recSynAckAck() throws IOException{
-        ByteBuffer buffer = ByteBuffer.allocate(Packet.MAX_LEN).order(ByteOrder.BIG_ENDIAN);
+    public void sendSynAck() throws IOException{
 
-        while (true) {
-            buffer.clear();
-            channel.receive(buffer);
-            buffer.flip();
-            Packet synAckAck = Packet.fromBuffer(buffer);
-            buffer.flip();
-            if (synAckAck.getType() == 3 && synAckAck.getSequenceNumber() == sequenceNumber) {
-                System.out.println("get synAckAck");
-                sequenceNumber++;
-                break;
-            }
-        }
-    }
-
-    private void recData() throws IOException{
-        ByteBuffer buffer = ByteBuffer.allocate(Packet.MAX_LEN).order(ByteOrder.BIG_ENDIAN);
-        while (true){
-            buffer.clear();
-            channel.receive(buffer);
-            buffer.flip();
-            Packet recData = Packet.fromBuffer(buffer);
-            buffer.flip();
-            if(recData.getSequenceNumber() == sequenceNumber) {
-                String data = new String(recData.getPayload(), UTF_8);
-                System.out.println(data);
-                sequenceNumber ++;
-                break;
-            }
-        }
-    }
-
-    private void sendData() throws IOException{
-        String payload = new String("got it!".getBytes(), UTF_8);
-        Packet data = new Packet.Builder()
-                .setType(0)
+        Packet synAck = new Packet.Builder()
+                .setType(2)
                 .setSequenceNumber(sequenceNumber)
                 .setPortNumber(packet.getPeerPort())
                 .setPeerAddress(packet.getPeerAddress())
-                .setPayload(payload.getBytes())
+                .setPayload(((ackNumber + 1) + "").getBytes())
                 .create();
-        channel.send(data.toBuffer(), router);
-        sequenceNumber++;
+
+
+        channel.send(synAck.toBuffer(),router);
+        sequenceNumber ++;
     }
+
 
     public long getSequenceNumber(){
         return sequenceNumber;
@@ -116,4 +116,50 @@ public class NewConnection implements Runnable {
     public void increaseSequenceNumber(){
         sequenceNumber ++;
     }
+
+    public boolean getConnected(){
+        return connected;
+    }
+
+    public void setConnected(boolean connected){
+        this.connected = connected;
+    }
+
+    public void setRcvData(String data){
+        this.rcvData = data;
+    }
+
+    public String getRcvData(){
+        return rcvData;
+    }
+
+    public void setFin(boolean fin){
+        this.fin = fin;
+    }
+
+    public boolean getFin(){
+        return fin;
+    }
+
+    public long getStartNumber(){
+        return startNumber;
+    }
+
+    public long getEndNumber(){
+        return endNumber;
+    }
+
+    public TreeMap<Long,String> getWindow(){
+        return window;
+    }
+
+    public void setStartNumber(long startNumber){
+        this.startNumber = startNumber;
+    }
+
+    public void setEndNumber(long endNumber){
+        this.endNumber = endNumber;
+    }
+
 }
+

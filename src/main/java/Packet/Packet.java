@@ -13,10 +13,14 @@ import java.nio.ByteOrder;
 
 /*
  * Packet type
- * 0: with data
+ * 0: single_packet_message_packet
  * 1: syn
  * 2: syn_ack
  * 3: syn_ack_ack
+ * 4: package_ack
+ * 5: data_start_packet
+ * 6: data_packet
+ * 7: data_end_packet
  */
 public class Packet {
 

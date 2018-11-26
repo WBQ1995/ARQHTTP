@@ -8,22 +8,23 @@ public class SendPacket implements Runnable{
 
     Packet packet;
     Client client;
-    long mySequenceNumber;
 
-    SendPacket(Packet packet, Client client, long sequenceNumber){
+    SendPacket(Packet packet, Client client){
             this.packet = packet;
             this.client = client;
-            this.mySequenceNumber = sequenceNumber;
     }
 
     public void run(){
-        client.increaseSequenceNumber();
+        //client.increaseSequenceNumber();
 
-        while (client.getSequenceNumber() == mySequenceNumber + 1){
+        System.out.println("packet# " + packet.getSequenceNumber());
+        System.out.println(packet.getType());
+
+        while (!client.getWindow().get(packet.getSequenceNumber())){
             try {
                 client.getChannel().send(packet.toBuffer(), client.getRouterAddress());
 
-                Thread.sleep(50);
+                Thread.sleep(100);
             } catch (IOException ex){
                 ex.getStackTrace();
             } catch (InterruptedException ex){

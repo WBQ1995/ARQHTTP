@@ -6,30 +6,31 @@ import java.io.IOException;
 
 public class SendSynAckAck implements Runnable {
 
-    private long mySequenceNumber;
     private Client client;
 
-    public SendSynAckAck(long sequenceNumber, Client client){
+    public SendSynAckAck(Client client){
         this.client = client;
-        this.mySequenceNumber = sequenceNumber;
     }
 
     public void run(){
-        client.increaseSequenceNumber();
+
+        //client.increaseSequenceNumber();
 
         Packet synAckAck = new Packet.Builder()
                 .setType(3)
-                .setSequenceNumber(mySequenceNumber)
+                .setSequenceNumber(-1)
                 .setPortNumber(client.getServerAddress().getPort())
                 .setPeerAddress(client.getServerAddress().getAddress())
-                .setPayload("".getBytes())
+                .setPayload(((client.getAckNumber() + 1) + "").getBytes())
                 .create();
 
-        while (client.getSequenceNumber() == mySequenceNumber + 1){
+        System.out.println("synAckAck# " + synAckAck.getSequenceNumber());
+
+        while (!client.getConnected()){
             try {
                 client.getChannel().send(synAckAck.toBuffer(), client.getRouterAddress());
 
-                Thread.sleep(50);
+                Thread.sleep(100);
             } catch (IOException ex){
                 ex.getStackTrace();
             } catch (InterruptedException ex){
