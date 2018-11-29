@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.TreeMap;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import Packet.Packet;
@@ -27,31 +28,56 @@ public class Client {
 
      private boolean connected = false;
 
-     private HashMap<Long,Boolean> window;
+     private HashMap<Long,Boolean> sendWindow;
+
+     private boolean allReceived = false;
+
+    private String rcvData = "";
+
+    private long startNumber = -1;
+    private long endNumber = -1;
+
+    private TreeMap<Long,String> rcvWindow;
 
 
-     public Client() throws IOException{
+
+    public Client() throws IOException{
           channel = DatagramChannel.open();
           sequenceNumber = (long) (Math.random() * 1000);
-          window = new HashMap<>();
+          sendWindow = new HashMap<>();
+          rcvWindow = new TreeMap<>();
      }
 
      public void sendData(String data) {
 
+         if(data.length() <= 1000){
+             Packet dataPacket = new Packet.Builder()
+                     .setType(0)
+                     .setSequenceNumber(sequenceNumber)
+                     .setPortNumber(serverAddress.getPort())
+                     .setPeerAddress(serverAddress.getAddress())
+                     .setPayload(data.getBytes())
+                     .create();
+
+             sendWindow.put(sequenceNumber,false);
+
+             SendPacket sendPacket = new SendPacket(dataPacket,this);
+             Thread sendPacketThread = new Thread(sendPacket);
+             sendPacketThread.start();
+             return;
+         }
+
          int c = 1;
 
          Packet dataPacket = new Packet.Builder()
-                 .setType(4)
+                 .setType(5)
                  .setSequenceNumber(sequenceNumber)
                  .setPortNumber(serverAddress.getPort())
                  .setPeerAddress(serverAddress.getAddress())
                  .setPayload(((ackNumber + 1 + "") + Integer.toString(c) + "aaa ").getBytes())
                  .create();
 
-         window.put(sequenceNumber,false);
-
-//         String payload = new String(dataPacket.getPayload(), StandardCharsets.UTF_8);
-//         System.out.println(payload);
+         sendWindow.put(sequenceNumber,false);
 
          SendPacket sendPacket = new SendPacket(dataPacket,this);
          Thread sendPacketThread = new Thread(sendPacket);
@@ -59,19 +85,18 @@ public class Client {
 
 
 
-         for (int i = 0; i < 40; i ++) {
+         for (int i = 0; i < 30; i ++) {
              sequenceNumber++;
              c++;
              Packet dataPacket1 = new Packet.Builder()
-                     .setType(5)
+                     .setType(6)
                      .setSequenceNumber(sequenceNumber)
                      .setPortNumber(serverAddress.getPort())
                      .setPeerAddress(serverAddress.getAddress())
                      .setPayload((Integer.toString(c) + "aaa ").getBytes())
                      .create();
-             window.put(sequenceNumber,false);
-//             payload = new String(dataPacket1.getPayload(), StandardCharsets.UTF_8);
-//             System.out.println(payload);
+             sendWindow.put(sequenceNumber,false);
+
              SendPacket sendPacket1 = new SendPacket(dataPacket1,this);
              Thread sendPacketThread1 = new Thread(sendPacket1);
              sendPacketThread1.start();
@@ -80,17 +105,15 @@ public class Client {
          sequenceNumber++;
          c++;
          Packet dataPacket2 = new Packet.Builder()
-                 .setType(6)
+                 .setType(7)
                  .setSequenceNumber(sequenceNumber)
                  .setPortNumber(serverAddress.getPort())
                  .setPeerAddress(serverAddress.getAddress())
                  .setPayload((Integer.toString(c) + "aaa ").getBytes())
                  .create();
 
-         window.put(sequenceNumber,false);
+         sendWindow.put(sequenceNumber,false);
 
-//         payload = new String(dataPacket2.getPayload(), StandardCharsets.UTF_8);
-//         System.out.println(payload);
          SendPacket sendPacket2 = new SendPacket(dataPacket2,this);
          Thread sendPacketThread2 = new Thread(sendPacket2);
          sendPacketThread2.start();
@@ -144,8 +167,8 @@ public class Client {
      }
 
      public boolean allSent(){
-         for (long key: window.keySet()){
-             if(!window.get(key)){
+         for (long key: sendWindow.keySet()){
+             if(!sendWindow.get(key)){
                  return false;
              }
          }
@@ -173,9 +196,9 @@ public class Client {
           sequenceNumber ++;
      }
 
-     public long getAckNumber(){
-         return ackNumber;
-     }
+     public long getAckNumber(){ return ackNumber; }
+
+     public void increaseAckNumber(){ackNumber ++;}
 
     public void setConnected(boolean connected) {
         this.connected = connected;
@@ -185,7 +208,32 @@ public class Client {
          return connected;
     }
 
-    public HashMap<Long,Boolean> getWindow(){
-         return window;
+    public HashMap<Long,Boolean> getSendWindow(){
+         return sendWindow;
     }
+
+    public void setAllReceived(boolean allReceived) { this.allReceived = allReceived; }
+
+    public boolean getAllReceived() {return allReceived; }
+
+    public long getStartNumber(){
+        return startNumber;
+    }
+
+    public long getEndNumber(){
+        return endNumber;
+    }
+
+    public TreeMap<Long,String> getRcvWindow(){
+        return rcvWindow;
+    }
+
+    public void setStartNumber(long startNumber){
+        this.startNumber = startNumber;
+    }
+
+    public void setEndNumber(long endNumber){
+        this.endNumber = endNumber;
+    }
+
 }

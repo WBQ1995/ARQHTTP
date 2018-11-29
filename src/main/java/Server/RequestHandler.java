@@ -9,7 +9,7 @@ public class RequestHandler implements Runnable {
 
     Packet rcvPacket;
     NewConnection connection;
-    Packet resPackage;
+    Packet resPacket;
 
     public RequestHandler(Packet rcvPacket, NewConnection connection){
         this.rcvPacket = rcvPacket;
@@ -18,70 +18,51 @@ public class RequestHandler implements Runnable {
 
     public void run(){
 
-        int packageType = rcvPacket.getType();
+        int packetType = rcvPacket.getType();
 
-        if(packageType == 3){
+        if(packetType == 3){
             String payload = new String(rcvPacket.getPayload(), StandardCharsets.UTF_8);
             if(Long.parseLong(payload) == connection.getSequenceNumber())
                 connection.setConnected(true);
         } else {
 
-            // TODO: 2018-11-26 this is a incorrect way to close processRequest, have to fix later 
-            if(packageType == 100){
+            if(packetType == 0){
                 String payload = new String(rcvPacket.getPayload(), StandardCharsets.UTF_8);
-                String data = payload.substring((connection.getSequenceNumber() + "").length());
-                if(payload.startsWith(connection.getSequenceNumber() + "")) {
-                    if (!connection.getFin()) {
-                        connection.setFin(true);
 
-                        connection.getWindow().put(connection.getSequenceNumber(),data);
-                        //System.out.println(connection.getRcvData());
-                    }
-                }
-                resPackage = new Packet.Builder()
+                connection.setStartNumber(1);
+                connection.setEndNumber(1);
+                connection.getRcvWindow().put(connection.getSequenceNumber(), payload);
+
+                resPacket = new Packet.Builder()
                         .setType(4)
                         .setSequenceNumber(rcvPacket.getSequenceNumber())
                         .setPortNumber(rcvPacket.getPeerPort())
                         .setPeerAddress(rcvPacket.getPeerAddress())
                         .setPayload("".getBytes())
                         .create();
+
                 try {
-                    connection.getChannel().send(resPackage.toBuffer(),connection.getRouterAddress());
+                    connection.getChannel().send(resPacket.toBuffer(),connection.getRouterAddress());
                 } catch (IOException ex){
                     ex.getStackTrace();
                 }
 
-            } else if(packageType == 4){
+            } else if(packetType == 5){
                 if(connection.getStartNumber() == -1)
                     connection.setStartNumber(rcvPacket.getSequenceNumber());
                 String payload = new String(rcvPacket.getPayload(), StandardCharsets.UTF_8);
-                payload = payload.substring((connection.getSequenceNumber() + "").length());
-                connection.getWindow().put(rcvPacket.getSequenceNumber(),payload);
-            } else if(packageType == 5){
+                connection.getRcvWindow().put(rcvPacket.getSequenceNumber(),payload);
+            } else if(packetType == 6){
                 String payload = new String(rcvPacket.getPayload(), StandardCharsets.UTF_8);
-                connection.getWindow().put(rcvPacket.getSequenceNumber(),payload);
-            } else if(packageType == 6){
+                connection.getRcvWindow().put(rcvPacket.getSequenceNumber(),payload);
+            } else if(packetType == 7){
                 if(connection.getEndNumber() == -1)
                     connection.setEndNumber(rcvPacket.getSequenceNumber());
                 String payload = new String(rcvPacket.getPayload(), StandardCharsets.UTF_8);
-                connection.getWindow().put(rcvPacket.getSequenceNumber(),payload);
-
-
+                connection.getRcvWindow().put(rcvPacket.getSequenceNumber(),payload);
             }
 
-//            String data = "";
-//            for (long key:connection.getWindow().keySet()){
-//                data += connection.getWindow().get(key);
-//            }
-//
-//            System.out.println(data);
-
-            if(connection.getStartNumber() != -1L && connection.getEndNumber() != -1L &&
-                    connection.getWindow().size() == (int)(connection.getEndNumber() - connection.getStartNumber() + 1)){
-                connection.allRecieved = true;
-            }
-
-            resPackage = new Packet.Builder()
+            resPacket = new Packet.Builder()
                     .setType(4)
                     .setSequenceNumber(rcvPacket.getSequenceNumber())
                     .setPortNumber(rcvPacket.getPeerPort())
@@ -89,7 +70,7 @@ public class RequestHandler implements Runnable {
                     .setPayload("".getBytes())
                     .create();
             try {
-                connection.getChannel().send(resPackage.toBuffer(),connection.getRouterAddress());
+                connection.getChannel().send(resPacket.toBuffer(),connection.getRouterAddress());
             } catch (IOException ex){
                 ex.getStackTrace();
             }

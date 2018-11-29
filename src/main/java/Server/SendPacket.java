@@ -1,17 +1,17 @@
-package Client;
+package Server;
 
 import Packet.Packet;
 
 import java.io.IOException;
 
-public class SendPacket implements Runnable{
+public class SendPacket implements Runnable {
 
     Packet packet;
-    Client client;
+    NewConnection connection;
 
-    SendPacket(Packet packet, Client client){
-            this.packet = packet;
-            this.client = client;
+    SendPacket(Packet packet, NewConnection connection){
+        this.packet = packet;
+        this.connection = connection;
     }
 
     public void run(){
@@ -19,9 +19,9 @@ public class SendPacket implements Runnable{
         System.out.println("packet# " + packet.getSequenceNumber());
         System.out.println(packet.getType());
 
-        while (!client.getSendWindow().get(packet.getSequenceNumber())){
+        while (!connection.getSendWindow().get(packet.getSequenceNumber())){
             try {
-                client.getChannel().send(packet.toBuffer(), client.getRouterAddress());
+                connection.getChannel().send(packet.toBuffer(), connection.getRouterAddress());
 
                 Thread.sleep(100);
             } catch (IOException ex){
@@ -31,5 +31,4 @@ public class SendPacket implements Runnable{
             }
         }
     }
-
 }

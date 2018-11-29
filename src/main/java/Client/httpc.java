@@ -5,8 +5,6 @@ import Packet.Packet;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 public class httpc {
 
     public static void main(String[] args) throws InterruptedException{
@@ -15,7 +13,7 @@ public class httpc {
             client.handShake();
             Thread.sleep(100);
 
-            client.sendData((client.getAckNumber() + 1) + "" + "Hello there!");
+            client.sendData("get http://localhost:8008/");
 
             ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
             while (true){
@@ -25,14 +23,27 @@ public class httpc {
                 Packet resp = Packet.fromBuffer(buf);
                 if(resp.getType() == 4){
                     client.setConnected(true);
-                    client.getWindow().put(resp.getSequenceNumber(),true);
-                    //String payload = new String(resp.getPayload(),UTF_8);
-                    //System.out.println(payload);
+                    client.getSendWindow().put(resp.getSequenceNumber(),true);
                     if(client.allSent())
                         break;
                 }
             }
-            System.out.println("Client done!");
+            System.out.println("Request has been sent!");
+            client.increaseAckNumber();
+
+            ResponseProcesser responseProcesser = new ResponseProcesser(client);
+            Thread processResponseThread = new Thread(responseProcesser);
+            processResponseThread.start();
+
+            Thread.sleep(2000);
+
+            String data = "";
+            for (long key:client.getRcvWindow().keySet()) {
+                data += client.getRcvWindow().get(key);
+            }
+            System.out.println(data);
+
+            System.out.println("client done!");
 
         } catch (IOException ex){
             ex.getStackTrace();

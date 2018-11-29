@@ -16,7 +16,7 @@ public class RequestProcesser implements Runnable{
 
     public void run(){
         ByteBuffer buffer = ByteBuffer.allocate(Packet.MAX_LEN).order(ByteOrder.BIG_ENDIAN);
-        while (!connection.getFin()){
+        while (!connection.getAllSent()){
             buffer.clear();
 
             try {
