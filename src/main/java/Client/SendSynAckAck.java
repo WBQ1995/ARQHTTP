@@ -24,10 +24,14 @@ public class SendSynAckAck implements Runnable {
 
         System.out.println("synAckAck# " + synAckAck.getSequenceNumber());
 
+        int i = 0;
+
         while (!client.getConnected()){
+            i++;
+            if(i > 50)
+                break;
             try {
                 client.getChannel().send(synAckAck.toBuffer(), client.getRouterAddress());
-
                 Thread.sleep(100);
             } catch (IOException ex){
                 ex.getStackTrace();

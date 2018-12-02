@@ -22,6 +22,7 @@ public class NewConnection implements Runnable {
     private long sequenceNumber;
     private long ackNumber;
     private Packet packet;
+    private String path = "/";
 
     private boolean connected = false;
 
@@ -66,7 +67,7 @@ public class NewConnection implements Runnable {
 
             String data = "";
 
-            Thread.sleep(2000);
+            Thread.sleep(4000);
 
             if(!connected)
                 return;
@@ -74,18 +75,23 @@ public class NewConnection implements Runnable {
             for (long key: rcvWindow.keySet()){
                 data += rcvWindow.get(key);
             }
-            System.out.println("received request!");
+            System.out.println("request received!\n");
             System.out.println(data);
 
-            File myFile = new File("/Users/WBQ/IdeaProjects/ARQHTTP/src/main/java/ServerTest.txt");
-            FileReader fileReader = new FileReader(myFile);
-            BufferedReader reader = new BufferedReader(fileReader);
-            String response = "";
-            String line = null;
-            while ((line = reader.readLine()) != null){
-                response += line;
+            String response;
+            Request request = new Request(data);
+            if(request.isValidRequest()) {
+                //response according to the message received
+                Processor processor = new Processor(request, path);
+
+                response = processor.getResponse().toString();
+
+                System.out.println(response);
+
+            } else {
+                System.out.println("HTTP/1.0 400 Bad Request");
+                response = "HTTP/1.0 400 Bad Request\r\n";
             }
-            reader.close();
 
             makePackets(response);
 
@@ -98,7 +104,7 @@ public class NewConnection implements Runnable {
         } catch (IOException ex){
             ex.getStackTrace();
         } catch (InterruptedException ex){
-            ex.printStackTrace();
+            ex.getStackTrace();
         }
     }
 

@@ -16,8 +16,7 @@ public class SendPacket implements Runnable{
 
     public void run(){
 
-        System.out.println("packet# " + packet.getSequenceNumber());
-        System.out.println(packet.getType());
+        System.out.println("packet# " + packet.getSequenceNumber() + " packet type:" + packet.getType() + "\n");
 
         while (!client.getSendWindow().get(packet.getSequenceNumber())){
             try {

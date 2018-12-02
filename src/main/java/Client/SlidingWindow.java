@@ -23,7 +23,6 @@ public class SlidingWindow {
 
         window = new TreeMap<>();
 
-
         if(packets.size() <= length){
 
             base = 0;

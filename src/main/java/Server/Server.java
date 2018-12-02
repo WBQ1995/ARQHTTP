@@ -32,7 +32,7 @@ public class Server {
             buffer.flip();
 
             if(packet.getType() == 1){
-                System.out.println("get syn");
+                System.out.println("get syn\n");
                 NewConnection connection = new NewConnection(packet);
                 Thread thread = new Thread(connection);
                 thread.start();

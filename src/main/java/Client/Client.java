@@ -179,7 +179,7 @@ public class Client {
             long ackFromServer = Long.parseLong(payload);
 
             if(synAck.getType() == 2 && ackFromServer == sequenceNumber){
-                System.out.println("get synAck");
+                System.out.println("get synAck\n");
                 ackNumber = synAck.getSequenceNumber();
                 serverAddress =
                         new InetSocketAddress("localhost",synAck.getPeerPort());
