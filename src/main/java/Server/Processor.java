@@ -39,7 +39,10 @@ public class Processor {
     private void processPost(){
 
         path += request.getFilePath();
-
+        if(path.contains("..")){
+            response.setState("403 Forbidden");
+            return;
+        }
 
         try {
             FileWriter fileWriter = new FileWriter(path,overwrite);
@@ -60,6 +63,11 @@ public class Processor {
             return;
         }
         path += request.getFilePath();
+
+        if(path.contains("..")){
+            response.setState("403 Forbidden");
+            return;
+        }
 
         try {
             readFile();
