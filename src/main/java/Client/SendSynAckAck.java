@@ -14,8 +14,6 @@ public class SendSynAckAck implements Runnable {
 
     public void run(){
 
-        //client.increaseSequenceNumber();
-
         Packet synAckAck = new Packet.Builder()
                 .setType(3)
                 .setSequenceNumber(-1)

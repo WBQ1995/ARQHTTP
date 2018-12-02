@@ -22,6 +22,7 @@ public class ResponseHandler implements Runnable {
         if(packetType == 0){
             String payload = new String(rcvPacket.getPayload(), StandardCharsets.UTF_8);
 
+            client.setConnected(true);
 
             client.setStartNumber(1);
             client.setEndNumber(1);
@@ -41,6 +42,9 @@ public class ResponseHandler implements Runnable {
             }
 
         } else if(packetType == 5){
+
+            client.setConnected(true);
+
             if(client.getStartNumber() == -1)
                 client.setStartNumber(rcvPacket.getSequenceNumber());
             String payload = new String(rcvPacket.getPayload(), StandardCharsets.UTF_8);
