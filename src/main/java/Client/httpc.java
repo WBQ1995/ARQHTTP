@@ -38,11 +38,6 @@ public class httpc {
             client.handShake();
             Thread.sleep(100);
 
-            if(!client.getConnected()){
-                System.out.println("Connection failed");
-                return;
-            }
-
             ArgsParser parser = new ArgsParser(args);
             Request request = parser.getRequest();
 
