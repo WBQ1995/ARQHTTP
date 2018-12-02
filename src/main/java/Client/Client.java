@@ -6,199 +6,231 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.TreeMap;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import Packet.Packet;
 
 public class Client {
 
-     private SocketAddress routerAddress =
-             new InetSocketAddress("localhost",3000);
+    private SocketAddress routerAddress =
+            new InetSocketAddress("localhost",3000);
 
-     private InetSocketAddress serverAddress =
-             new InetSocketAddress("localhost", 8008);
+    private InetSocketAddress serverAddress =
+            new InetSocketAddress("localhost", 8008);
 
-     private DatagramChannel channel;
+    private DatagramChannel channel;
 
-     private long sequenceNumber;
+    private long sequenceNumber;
 
-     private long ackNumber = -1;
+    private long ackNumber = -1;
 
-     private boolean connected = false;
+    private boolean connected = false;
 
-     private HashMap<Long,Boolean> sendWindow;
+    private HashMap<Long,Boolean> sendWindow;
 
-     private boolean allReceived = false;
+    private boolean allReceived = false;
 
-    private String rcvData = "";
+    private boolean allSent = false;
 
     private long startNumber = -1;
     private long endNumber = -1;
 
     private TreeMap<Long,String> rcvWindow;
 
+    private ArrayList<Packet> packets;
 
+    private SlidingWindow slidingWindow;
 
     public Client() throws IOException{
           channel = DatagramChannel.open();
           sequenceNumber = (long) (Math.random() * 1000);
           sendWindow = new HashMap<>();
           rcvWindow = new TreeMap<>();
+
+          packets = new ArrayList<Packet>();
+
      }
 
-     public void sendData(String data) {
+    public void receiveAck() throws IOException{
+        ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
+        while (true){
+            buf.clear();
+            channel.receive(buf);
+            buf.flip();
+            Packet resp = Packet.fromBuffer(buf);
+            int packetNum = getPacketNum(resp.getSequenceNumber());
+            if(resp.getType() == 4){
+                allSent = true;
+                slidingWindow.rcvPacket(packetNum);
+                if(!slidingWindow.isAllSent())
+                    slidingWindow.sendNextPackets();
 
-         if(data.length() <= 1000){
+                sendWindow.put(resp.getSequenceNumber(),true);
+                if(requestAllSent())
+                    break;
+            }
+        }
+    }
+
+    private int getPacketNum(long sequenceNumber){
+        for(int i = 0; i < packets.size(); i++){
+            if(packets.get(i).getSequenceNumber() == sequenceNumber)
+                return  i;
+        }
+        return - 1;
+    }
+
+    public void sendRequest(){
+        slidingWindow = new SlidingWindow(packets,this);
+    }
+
+    public void makePackets(String request) {
+
+         if(request.length() <= 1000){
              Packet dataPacket = new Packet.Builder()
                      .setType(0)
                      .setSequenceNumber(sequenceNumber)
                      .setPortNumber(serverAddress.getPort())
                      .setPeerAddress(serverAddress.getAddress())
-                     .setPayload(data.getBytes())
+                     .setPayload(request.getBytes())
                      .create();
 
+             packets.add(dataPacket);
              sendWindow.put(sequenceNumber,false);
-
-             SendPacket sendPacket = new SendPacket(dataPacket,this);
-             Thread sendPacketThread = new Thread(sendPacket);
-             sendPacketThread.start();
              return;
-         }
+         } else {
 
-         int c = 1;
-
-         Packet dataPacket = new Packet.Builder()
-                 .setType(5)
-                 .setSequenceNumber(sequenceNumber)
-                 .setPortNumber(serverAddress.getPort())
-                 .setPeerAddress(serverAddress.getAddress())
-                 .setPayload(((ackNumber + 1 + "") + Integer.toString(c) + "aaa ").getBytes())
-                 .create();
-
-         sendWindow.put(sequenceNumber,false);
-
-         SendPacket sendPacket = new SendPacket(dataPacket,this);
-         Thread sendPacketThread = new Thread(sendPacket);
-         sendPacketThread.start();
-
-
-
-         for (int i = 0; i < 30; i ++) {
-             sequenceNumber++;
-             c++;
-             Packet dataPacket1 = new Packet.Builder()
-                     .setType(6)
+             String firstData = request.substring(0, 1000);
+             request = request.substring(1000);
+             Packet firstPacket = new Packet.Builder()
+                     .setType(5)
                      .setSequenceNumber(sequenceNumber)
                      .setPortNumber(serverAddress.getPort())
                      .setPeerAddress(serverAddress.getAddress())
-                     .setPayload((Integer.toString(c) + "aaa ").getBytes())
+                     .setPayload(firstData.getBytes())
                      .create();
-             sendWindow.put(sequenceNumber,false);
 
-             SendPacket sendPacket1 = new SendPacket(dataPacket1,this);
-             Thread sendPacketThread1 = new Thread(sendPacket1);
-             sendPacketThread1.start();
+             packets.add(firstPacket);
+             sendWindow.put(sequenceNumber, false);
+
+             sequenceNumber++;
+
+             while (request.length() > 1000) {
+                 String middleData = request.substring(0, 1000);
+                 request = request.substring(1000);
+                 Packet middlePacket = new Packet.Builder()
+                         .setType(6)
+                         .setSequenceNumber(sequenceNumber)
+                         .setPortNumber(serverAddress.getPort())
+                         .setPeerAddress(serverAddress.getAddress())
+                         .setPayload(middleData.getBytes())
+                         .create();
+
+                 packets.add(middlePacket);
+                 sendWindow.put(sequenceNumber, false);
+
+                 sequenceNumber++;
+             }
+
+             Packet lastPacket = new Packet.Builder()
+                     .setType(7)
+                     .setSequenceNumber(sequenceNumber)
+                     .setPortNumber(serverAddress.getPort())
+                     .setPeerAddress(serverAddress.getAddress())
+                     .setPayload(request.getBytes())
+                     .create();
+             packets.add(lastPacket);
+
+             sendWindow.put(sequenceNumber, false);
+
+             System.out.println("last sent!!");
          }
+    }
 
-         sequenceNumber++;
-         c++;
-         Packet dataPacket2 = new Packet.Builder()
-                 .setType(7)
-                 .setSequenceNumber(sequenceNumber)
-                 .setPortNumber(serverAddress.getPort())
-                 .setPeerAddress(serverAddress.getAddress())
-                 .setPayload((Integer.toString(c) + "aaa ").getBytes())
-                 .create();
+    public void handShake() throws IOException{
 
-         sendWindow.put(sequenceNumber,false);
+        sendSyn();
 
-         SendPacket sendPacket2 = new SendPacket(dataPacket2,this);
-         Thread sendPacketThread2 = new Thread(sendPacket2);
-         sendPacketThread2.start();
+        recSynAck();
 
-     }
+        sendSynAckAck();
 
-     public void handShake() throws IOException{
+    }
 
-          sendSyn();
+    private void sendSyn(){
 
-          recSynAck();
+        SendSyn syn = new SendSyn(this);
+        Thread synThread = new Thread(syn);
+        synThread.start();
+    }
 
-          sendSynAckAck();
+    private void recSynAck() throws IOException{
+        ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
+        while (true){
+            buf.clear();
+            channel.receive(buf);
+            buf.flip();
+            Packet synAck = Packet.fromBuffer(buf);
+            buf.flip();
+            String payload = new String(synAck.getPayload(), StandardCharsets.UTF_8);
 
-     }
+            long ackFromServer = Long.parseLong(payload);
 
-     private void sendSyn(){
-
-          SendSyn syn = new SendSyn(this);
-          Thread synThread = new Thread(syn);
-          synThread.start();
-     }
-
-     private void recSynAck() throws IOException{
-          ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
-          while (true){
-               buf.clear();
-               channel.receive(buf);
-               buf.flip();
-               Packet synAck = Packet.fromBuffer(buf);
-               buf.flip();
-               String payload = new String(synAck.getPayload(), StandardCharsets.UTF_8);
-
-               long ackFromServer = Long.parseLong(payload);
-
-               if(synAck.getType() == 2 && ackFromServer == sequenceNumber){
-                   System.out.println("get synAck");
-                   ackNumber = synAck.getSequenceNumber();
-                   serverAddress =
-                           new InetSocketAddress("localhost",synAck.getPeerPort());
-                   break;
+            if(synAck.getType() == 2 && ackFromServer == sequenceNumber){
+                System.out.println("get synAck");
+                ackNumber = synAck.getSequenceNumber();
+                serverAddress =
+                        new InetSocketAddress("localhost",synAck.getPeerPort());
+                break;
                }
           }
      }
 
-     private void sendSynAckAck(){
+    private void sendSynAckAck(){
 
-          SendSynAckAck synAckAck = new SendSynAckAck(this);
-          Thread synAckAckThread = new Thread(synAckAck);
-          synAckAckThread.start();
-     }
+        SendSynAckAck synAckAck = new SendSynAckAck(this);
+        Thread synAckAckThread = new Thread(synAckAck);
+        synAckAckThread.start();
+    }
 
-     public boolean allSent(){
-         for (long key: sendWindow.keySet()){
-             if(!sendWindow.get(key)){
-                 return false;
-             }
-         }
-         return true;
-     }
+    public boolean requestAllSent(){
+        for (long key: sendWindow.keySet()){
+            if(!sendWindow.get(key)){
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    
+
+    public long getSequenceNumber(){
+        return sequenceNumber;
+    }
+
+    public SocketAddress getRouterAddress(){
+        return routerAddress;
+    }
+
+    public InetSocketAddress getServerAddress(){
+        return serverAddress;
+    }
+
+    public DatagramChannel getChannel(){
+        return channel;
+    }
+
+    public void increaseSequenceNumber(){
+        sequenceNumber ++;
+    }
+
+    public long getAckNumber(){ return ackNumber; }
+
+    public void increaseAckNumber(){ackNumber ++;}
 
 
-     public long getSequenceNumber(){
-          return sequenceNumber;
-     }
-
-     public SocketAddress getRouterAddress(){
-          return routerAddress;
-     }
-
-     public InetSocketAddress getServerAddress(){
-          return serverAddress;
-     }
-
-     public DatagramChannel getChannel(){
-          return channel;
-     }
-
-     public void increaseSequenceNumber(){
-          sequenceNumber ++;
-     }
-
-     public long getAckNumber(){ return ackNumber; }
-
-     public void increaseAckNumber(){ackNumber ++;}
 
     public void setConnected(boolean connected) {
         this.connected = connected;

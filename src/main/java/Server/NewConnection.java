@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.TreeMap;
 
@@ -32,7 +33,14 @@ public class NewConnection implements Runnable {
 
     private HashMap<Long,Boolean> sendWindow;
 
+    SlidingWindow slidingWindow;
+
+    private ArrayList<Packet> packets;
+
     public NewConnection(Packet packet){
+
+        packets = new ArrayList<>();
+
         this.packet = packet;
         int port = 9000 + (int)(Math.random() * 1000);
 
@@ -69,7 +77,7 @@ public class NewConnection implements Runnable {
             System.out.println("received request!");
             System.out.println(data);
 
-            File myFile = new File("/Users/WBQ/IdeaProjects/ARQHTTP/src/main/java/Server/text.txt");
+            File myFile = new File("/Users/WBQ/IdeaProjects/ARQHTTP/src/main/java/ServerTest.txt");
             FileReader fileReader = new FileReader(myFile);
             BufferedReader reader = new BufferedReader(fileReader);
             String response = "";
@@ -79,11 +87,14 @@ public class NewConnection implements Runnable {
             }
             reader.close();
 
-            sendResponse(response);
+            makePackets(response);
+
+            slidingWindow = new SlidingWindow(packets,this);
 
             receiveAck();
 
             System.out.println("connection done!");
+
         } catch (IOException ex){
             ex.getStackTrace();
         } catch (InterruptedException ex){
@@ -98,8 +109,14 @@ public class NewConnection implements Runnable {
             channel.receive(buf);
             buf.flip();
             Packet resp = Packet.fromBuffer(buf);
+            int packetNum = getPacketNum(resp.getSequenceNumber());
             if(resp.getType() == 4){
                 allSent = true;
+
+                slidingWindow.rcvPacket(packetNum);
+                if(!slidingWindow.isAllSent())
+                    slidingWindow.sendNextPackets();
+
                 sendWindow.put(resp.getSequenceNumber(),true);
                 if(responseAllSent())
                     break;
@@ -107,9 +124,15 @@ public class NewConnection implements Runnable {
         }
     }
 
-    private void sendResponse(String response){
-        SendPacket sendPacket;
-        Thread sendPacketThread;
+    private int getPacketNum(long sequenceNumber){
+        for(int i = 0; i < packets.size(); i++){
+            if(packets.get(i).getSequenceNumber() == sequenceNumber)
+                return  i;
+        }
+        return - 1;
+    }
+
+    private void makePackets(String response){
 
         if(response.length() < 1000){
             Packet dataPacket = new Packet.Builder()
@@ -120,11 +143,8 @@ public class NewConnection implements Runnable {
                     .setPayload(response.getBytes())
                     .create();
 
+            packets.add(dataPacket);
             sendWindow.put(sequenceNumber,false);
-
-            sendPacket = new SendPacket(dataPacket,this);
-            sendPacketThread = new Thread(sendPacket);
-            sendPacketThread.start();
 
             return;
         } else {
@@ -138,11 +158,9 @@ public class NewConnection implements Runnable {
                     .setPayload(firstData.getBytes())
                     .create();
 
+            packets.add(firstPacket);
             sendWindow.put(sequenceNumber,false);
 
-            sendPacket = new SendPacket(firstPacket,this);
-            sendPacketThread = new Thread(sendPacket);
-            sendPacketThread.start();
             sequenceNumber++;
 
             while (response.length() > 1000){
@@ -155,12 +173,10 @@ public class NewConnection implements Runnable {
                         .setPeerAddress(packet.getPeerAddress())
                         .setPayload(middleData.getBytes())
                         .create();
+                packets.add(middlePacket);
 
                 sendWindow.put(sequenceNumber,false);
 
-                sendPacket = new SendPacket(middlePacket,this);
-                sendPacketThread = new Thread(sendPacket);
-                sendPacketThread.start();
                 sequenceNumber++;
             }
 
@@ -171,12 +187,10 @@ public class NewConnection implements Runnable {
                     .setPeerAddress(packet.getPeerAddress())
                     .setPayload(response.getBytes())
                     .create();
+            packets.add(lastPacket);
 
             sendWindow.put(sequenceNumber,false);
 
-            sendPacket = new SendPacket(lastPacket,this);
-            sendPacketThread = new Thread(sendPacket);
-            sendPacketThread.start();
             System.out.println("last sent!!");
         }
     }

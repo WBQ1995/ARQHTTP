@@ -2,6 +2,9 @@ package Client;
 
 import Packet.Packet;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -13,21 +16,20 @@ public class httpc {
             client.handShake();
             Thread.sleep(100);
 
-            client.sendData("get http://localhost:8008/");
-
-            ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
-            while (true){
-                buf.clear();
-                client.getChannel().receive(buf);
-                buf.flip();
-                Packet resp = Packet.fromBuffer(buf);
-                if(resp.getType() == 4){
-                    client.setConnected(true);
-                    client.getSendWindow().put(resp.getSequenceNumber(),true);
-                    if(client.allSent())
-                        break;
-                }
+            File myFile = new File("/Users/WBQ/IdeaProjects/ARQHTTP/src/main/java/ClientTest_1.txt");
+            FileReader fileReader = new FileReader(myFile);
+            BufferedReader reader = new BufferedReader(fileReader);
+            String request = "";
+            String line = null;
+            while ((line = reader.readLine()) != null){
+                request += line;
             }
+            reader.close();
+
+            client.makePackets(request);
+            client.sendRequest();
+            client.receiveAck();
+
             System.out.println("Request has been sent!");
             client.increaseAckNumber();
 
