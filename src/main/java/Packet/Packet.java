@@ -11,7 +11,7 @@ import java.nio.ByteOrder;
  * As we don't have unsigned types in Java, we can achieve this by using a larger type.
  */
 
-/*
+/**
  * Packet type
  * 0: single_packet_message_packet
  * 1: syn
