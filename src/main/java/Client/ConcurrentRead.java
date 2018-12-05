@@ -8,7 +8,7 @@ public class ConcurrentRead implements Runnable {
 
     public void run(){
 
-        String[] args = {"get", "-v", "http://localhost:8008/new.txt"};
+        String[] args = {"get", "-v", "http://localhost:8008/"};
 
         try {
             Client client = new Client();

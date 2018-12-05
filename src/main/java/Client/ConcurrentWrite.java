@@ -8,7 +8,7 @@ public class ConcurrentWrite implements Runnable{
 
     public void run(){
 
-        String[] args = {"post", "-v", "-f", "ClientTest.txt", "http://localhost:8008/new.txt"};
+        String[] args = {"post", "-v", "-f", "ClientTest.txt", "http://localhost:8008/new1.txt"};
 
         try {
             Client client = new Client();
