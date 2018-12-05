@@ -59,7 +59,7 @@ public class SlidingWindow {
     public void sendNextPackets(){
         SendPacket sendPacket;
         Thread sendPacketThread;
-        while(window.get(base) && base <= packets.size() - 1){
+        while(base <= packets.size() - 1 && window.get(base)){
             base++;
             if(end != packets.size() - 1){
                 end ++;
