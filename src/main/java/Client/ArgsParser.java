@@ -199,9 +199,9 @@ public class ArgsParser {
         FileReader reader = new FileReader(file);
         BufferedReader bReader = new BufferedReader(reader);
         StringBuilder sb = new StringBuilder();
-        String data = "";
+        String data;
         while ((data =bReader.readLine()) != null) {
-            sb.append(data);
+            sb.append(data + "\r\n");
         }
         bReader.close();
         data= sb.toString();
