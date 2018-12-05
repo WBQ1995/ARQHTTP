@@ -69,6 +69,11 @@ public class NewConnection implements Runnable {
 
             Thread.sleep(4000);
 
+            if((endNumber - startNumber + 1) != rcvWindow.size()){
+                Thread.sleep(6500);
+
+            }
+
             if(!connected)
                 return;
 
@@ -76,7 +81,9 @@ public class NewConnection implements Runnable {
                 data += rcvWindow.get(key);
             }
             System.out.println("request received!\n");
-            System.out.println(data);
+            System.out.println(data + "\n");
+
+            System.out.println(rcvWindow.size() + " packets received!\n");
 
             String response;
             Request request = new Request(data);

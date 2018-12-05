@@ -52,22 +52,47 @@ public class httpc {
             Thread processResponseThread = new Thread(responseProcesser);
             processResponseThread.start();
 
+
+
             Thread.sleep(4000);
 
-            String data = "";
-            for (long key:client.getRcvWindow().keySet()) {
-                data += client.getRcvWindow().get(key);
+            if((client.getEndNumber() - client.getStartNumber() + 1) == client.getRcvWindow().size()){
+                display(client,request);
+                return;
             }
 
-            data = analyzeData(data,request);
+            Thread.sleep(6500);
 
-            System.out.println(data);
+            if((client.getEndNumber() - client.getStartNumber() + 1) != client.getRcvWindow().size()){
+                System.out.println("Disconnect before data received...");
+                return;
+            } else {
+                display(client,request);
+            }
 
-            System.out.println("client done!");
+
+
 
         } catch (IOException ex){
             ex.getStackTrace();
         }
+    }
+
+    private static void display(Client client, Request request) throws IOException{
+
+        String data = "";
+
+        for (long key:client.getRcvWindow().keySet()) {
+            data += client.getRcvWindow().get(key);
+        }
+
+        data = analyzeData(data,request);
+
+        System.out.println(data);
+
+        System.out.println(client.getRcvWindow().size() + " packets received!");
+
+        System.out.println("client done!");
     }
 
     private static String analyzeData(String data, Request request) throws IOException{
